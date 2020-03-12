@@ -11,7 +11,7 @@ hostnamectl
 And you have your hostname
 
 ```
-Static hostname: anhminh-VirtualBox
+Static hostname: server.anhminh.com
 ```
 
 You can set up new hostname by using command:
@@ -84,7 +84,7 @@ Now go to `sudo nano /etc/bind/named.conf.local` to add zones
 
 ```
 zone "anhminh.com" IN {
-tpye master;
+type master;
 file "/etc/bind/forward.anhminh.com";
 } ;
 
@@ -116,4 +116,151 @@ And copy file db.local to forward.anhminh.com (you need to copy to your own file
 sudo cp db.local forward.anhminh.com
 ```
 
-Now open `forward.anhminh.com` by using command sudo nano `/etc/bind/forward.anhminh.com`
+Now open `forward.anhminh.com` by using command `sudo nano /etc/bind/forward.anhminh.com` and you need to config like that
+
+- Note:
+
+  - You need to have another machine as client then get its ip address
+  - Change "server.anhminh.com" to your hostname
+  - After hostname we have a dot (.) that is delimeter
+  - Change 192.168.1.112 to your server ipaddress
+  - Change 192.168.1.114 to your another machine
+  - If you are confusing about what is NS, what is PTR and A you can follow this [link](http://dns-record-viewer.online-domain-tools.com/)
+
+```
+;
+; BIND data file for local loopback interface
+;
+$TTL    604800
+@       IN      SOA     server.anhminh.com. server.anhminh.com. (
+                              2         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+;
+@       IN      NS      server.anhminh.com.
+@       IN      A       192.168.1.112
+server  IN      A       192.168.1.112
+host    IN      A       192.168.1.112
+client  IN      A       192.168.1.114
+www     IN      A       192.168.1.114
+```
+
+After that copy file forward.anhminh.com to reverse.anhminh.com (you need to copy to your own file) by command:
+
+```
+sudo cp forward.anhminh.com reverse.anhminh.com
+```
+
+Then open `reverse.anhminh.com` by using command `sudo nano /etc/bind/reverse.anhminh.com` and config it like that:
+
+- Note:
+
+  - Change the second line like that `@ IN PTR anhminh.com.`
+  - Add two last line and its first row we need to change the last ip address of server and client
+
+```
+;
+; BIND data file for local loopback interface
+;
+$TTL    604800
+@       IN      SOA     server.anhminh.com. server.anhminh.com. (
+                              2         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+;
+@       IN      NS      server.anhminh.com.
+@       IN      PTR     anhminh.com.
+server  IN      A       192.168.1.112
+host    IN      A       192.168.1.112
+client  IN      A       192.168.1.114
+www     IN      A       192.168.1.114
+112     IN      PTR     server.anhminh.com.
+114     IN      PTR     client.anhminh.com.
+```
+
+- Step 4: Check your configuration
+
+  - Run the command: `sudo named-checkconf -z /etc/bind/named.conf` and you can see it is showing loaded serial it means server configuration is right. If you have any error then it will show and error and you have to go this file and make changes to
+  - Then run the command: `sudo named-checkconf -z /etc/bind/named.conf.local` and two command to check everything is working:
+
+  ```
+  sudo named-checkzone forward /etc/bind/forward.anhminh.com
+  ```
+
+  ```
+  sudo named-checkzone forward /etc/bind/reverse.anhminh.com
+  ```
+
+  - Now start the services bind9 by using command:
+
+  ```
+  sudo systemctl start bind9
+  ```
+
+  - And change the ownership and permissions of the file:
+
+  ```
+  sudo chown -R bind:bind /etc/bind
+  ```
+
+  ```
+  sudo chmod -R 755 /etc/bind
+  ```
+
+  - Now restart the service bind9:
+
+  ```
+  sudo systemctl restart bind9
+  ```
+
+  - Check the status of bind9 `sudo systemctl status bind9` and make sure it's working like that:
+
+  ```
+  ● bind9.service - BIND Domain Name Server
+   Loaded: loaded (/lib/systemd/system/bind9.service; enabled; vendor preset: en
+   Active: active (running) since Thu 2020-03-12 16:06:19 EET; 58min ago
+     Docs: man:named(8)
+  Main PID: 890 (named)
+    Tasks: 4 (limit: 4915)
+   CGroup: /system.slice/bind9.service
+           └─890 /usr/sbin/named -f -u bind
+  ```
+
+  - Enable bind9 `sudo systemctl enable bind9`
+  - If your firewall is active (you can check status of firewall : `sudo ufw status`), you need to allow bind9 by using command `sudo ufw allow bind9`
+  - Go to `sudo nano /etc/network/interfaces` and add dns-search and domain name:
+
+  ```
+  # interfaces(5) file used by ifup(8) and ifdown(8)
+  auto lo
+  iface lo inet loopback
+  auto enp0s3
+  iface enp0s3 inet static
+  address 192.168.1.112
+  netmask 255.255.255.0
+  dns-search anhminh.com
+  dns-nameserver 192.168.1.112
+  ```
+
+  - And go to `sudo nano /etc/resolv.conf` of 2 machines (server and client) and fix it like that:
+
+  ```
+  nameserver 192.168.1.112
+  search anhminh.com
+  ```
+
+  - After config this file, you need to run 2 command on both machines
+
+  ```
+  systemctl restart netwoking
+  ```
+
+  ```
+  systemctl restart NetworkManager
+  ```
+
+  - Finally, test to ping server, host, client, www and run `nslookup server` to see the server, address and hostname.
