@@ -1,5 +1,7 @@
 # DNS Configuration
 
+### [How a DNS Server works](https://www.youtube.com/watch?v=mpQZVYPuDGU)
+
 - Step 1: Check your hostname by using command:
 
 ```
@@ -113,3 +115,5 @@ And copy file db.local to forward.anhminh.com (you need to copy to your own file
 ```
 sudo cp db.local forward.anhminh.com
 ```
+
+Now open `forward.anhminh.com` by using command sudo nano `/etc/bind/forward.anhminh.com`
